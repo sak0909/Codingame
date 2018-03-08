@@ -272,6 +272,36 @@ struct Hero : public Entity
         printMove(o);
     }
 
+    Point findNearestPointToHide()
+    {
+        int ansD = 50000;
+        Point ans;
+        for(SpawnPoint& p:  spawnPoints)
+        {
+            if(p.entityType == "BUSH")
+            {
+                int d = distanceTo(p);
+                if(d < ansD)
+                {
+                    ansD = d;
+                    ans.x = p.x, ans.y = p.y;
+                }
+            }
+        }
+
+        if(ans.x == 0 && ans.y == 0)
+            ans.x = homeTower.x, ans.y = homeTower.y;
+
+        return ans;
+    }
+
+    void hide()
+    {
+        stringstream o;
+        Point p = findNearestPointToHide();
+        o << "MOVE " << p.x << " " << p.y;
+    }
+
     virtual void playMove()
     {
         cerr << "Play move" << heroType << endl;
@@ -592,23 +622,6 @@ struct Game{
         myHeroes.clear();
     }
 
-    void printMove(Entity& H, string& move)
-    {
-        if(!H.actioned)
-        {
-            cout << move << "; "<< StratText[H.Strategy] << endl;
-            H.actioned = true;
-        }
-    }
-    void printMove(Entity& H, stringstream& move)
-    {
-        if(!H.actioned)
-        {
-            cout << move.str() << "; "<< StratText[H.Strategy] << endl;
-            H.actioned = true;
-        }
-    }
-
     void processEnemyEntities()
     {
 
@@ -735,19 +748,6 @@ struct Game{
         }
     }
 
-    void defaultMove(Entity& H)
-    {
-        stringstream o;
-        Point p;
-        p.x = nearestEnemyInFrontLine.x;
-        p.y = nearestEnemyInFrontLine.y - 10;
-        p.y += H.unitId%2 == 0 ? H.attackRange : -H.attackRange;
-        p.y = min(p.y, 740);
-
-        o << "MOVE_ATTACK " << p.x << " " << p.y << " " << nearestEnemyInFrontLine.unitId << "; Default";
-        printMove(H, o);
-    }
-
     Point findBestPointOfAttack(Entity& H, Entity& Enemy)
     {
         Point ans(Enemy.x, Enemy.y);
@@ -803,235 +803,7 @@ struct Game{
         e.x = min(H.x-H.attackRange, 0); e.y = H.y;
         w.x = max(H.x + H.attackRange, 1910); w.y = H.y;
 
-    }
-
-    Point findNearestPointToHide(Entity& H)
-    {
-        int ansD = 50000;
-        Point ans;
-        for(SpawnPoint& p:  spawnPoints)
-        {
-            if(p.entityType == "BUSH")
-            {
-                int d = H.distanceTo(p);
-                if(d < ansD)
-                {
-                    ansD = d;
-                    ans.x = p.x, ans.y = p.y;
-                }
-            }
-        }
-
-        if(ans.x == 0 && ans.y == 0)
-            ans.x = homeTower.x, ans.y = homeTower.y;
-
-        return ans;
-    }
-
-    void hide(Entity& H)
-    {
-        stringstream o;
-        Point p = findNearestPointToHide(H);
-        o << "MOVE " << p.x << " " << p.y;
-    }
-
-    void playValkyrie(Entity& H)
-    {
-        enum skills {SPEARFLIP = 0, JUMP = 1, POWERUP = 2};
-        vector<int> manaCost = {20,35,50};
-        stringstream o;
-
-        if(!H.actioned)
-        {
-            switch(H.Strategy){
-            case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
-
-                for(Entity& e: allEntities)
-                {
-                    int d = H.distanceTo(e);
-                    if(e.health < H.attackDamage)
-                    {
-                        if(d < H.attackRange)
-                        {
-                            o << "ATTACK " << e.unitId << "; Nearby weak1";
-                            printMove(H, o);
-                            break;
-                        }
-                        else if(d < 250 && H.mana > manaCost[JUMP] && H.countDown[JUMP] == 0)
-                        {
-                            o << "JUMP " << e.x << " " << e.y << "; Faraway weak1";
-                            printMove(H, o);
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-
-
-            case SWARM_ATTACK_ENEMY_HERO:{
-                Entity enemy = enemyHeros[0].unitId == enemyIdToSwarm ? enemyHeros[0] : enemyHeros[1];
-                if(enemy.distanceTo(H) < 250 && H.mana > manaCost[JUMP] && H.countDown[JUMP] == 0)
-                    o << "JUMP " << enemy.x << " " << enemy.y;
-                else
-                    o << "ATTACK " << enemyIdToSwarm;
-
-                printMove(H, o);
-                break;
-            }
-
-            case SELF_DEFENCE:{
-                if(H.enemiesAround == 1 && allEntities[H.nearestEnemyId].health < H.health)
-                    o << "ATTACK " << H.nearestEnemyId;
-                else
-                    o << "MOVE " << homeTower.x << " " << homeTower.y;
-
-                printMove(H, o);
-                break;
-            }
-
-            }
-        }
-
-        //If still no move found then default
-        if(!H.actioned)
-        {
-            defaultMove(H);
-        }
-    }
-
-    void playHulk(Entity& H)
-    {
-        enum skills {CHARGE = 0, EXPLOSIVESHIELD = 1, BASH = 2};
-        vector<int> manaCost = {20,35,50};
-
-        stringstream o;
-        if(!H.actioned)
-        {
-            switch(H.Strategy){
-            case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
-
-                stringstream o;
-                for(Entity& e: allEntities)
-                {
-                    int d = H.distanceTo(e);
-                    if(e.health < H.attackDamage)
-                    {
-                        if(d < H.attackRange)
-                        {
-                            o << "ATTACK " << e.unitId << "; Nearby weak1";
-                            printMove(H, o);
-                            break;
-                        }
-                        else if(d < 500 && H.mana > manaCost[CHARGE] && H.countDown[CHARGE] == 0)
-                        {
-                            o << "CHARGE " << e.unitId << "; Faraway weak1";
-                            printMove(H, o);
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-
-            case SWARM_ATTACK_ENEMY_HERO:{
-                Entity enemy = enemyHeros[0].unitId == enemyIdToSwarm ? enemyHeros[0] : enemyHeros[1];
-                int d = enemy.distanceTo(H);
-
-                if(d < 300 && H.mana > manaCost[CHARGE] && H.countDown[CHARGE] == 0)
-                    o << "CHARGE " << enemyIdToSwarm;
-                else
-                    o << "ATTACK " << enemyIdToSwarm;
-
-                printMove(H, o);
-                break;
-            }
-
-            case SELF_DEFENCE:{
-                if(H.enemiesAround == 1 && allEntities[H.nearestEnemyId].health < H.health)
-                    o << "ATTACK " << H.nearestEnemyId;
-                else
-                    o << "MOVE " << homeTower.x << " " << homeTower.y;
-                printMove(H, o);
-                break;
-            }
-
-            }
-        }
-
-        //If still no move found then default
-        if(!H.actioned)
-        {
-            defaultMove(H);
-        }
-    }
-
-    void playIronman(Entity& H)
-    {
-        enum skills {BLINK = 0, FIREBALL = 1, BURNING = 2};
-        vector<int> manaCost = {16,60,50};
-
-        stringstream o;
-        if(!H.actioned)
-        {
-            switch(H.Strategy){
-            case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
-
-
-                for(Entity& e: allEntities)
-                {
-                    int d = H.distanceTo(e);
-                    if(e.health < H.attackDamage)
-                    {
-                        if(d < H.attackRange)
-                        {
-                            o << "ATTACK " << e.unitId << "; Nearby weak1";
-                            printMove(H, o);
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-
-            case SWARM_ATTACK_ENEMY_HERO:{
-                Entity enemy = enemyHeros[0].unitId == enemyIdToSwarm ? enemyHeros[0] : enemyHeros[1];
-                int d = enemy.distanceTo(H);
-
-                Point p; p.y = enemy.y;
-                p.x = myTeam == 0 ? min(enemy.x - H.attackRange + 10, 0) : max(enemy.x + H.attackRange - 10, homeTower.x);
-
-                if(d <= 900 && H.mana > manaCost[FIREBALL] && H.countDown[FIREBALL] == 0)
-                    o << "FIREBALL " << enemy.x << " " << enemy.y;
-                else
-                    o << "MOVE_ATTACK " << p.x << " " << p.y << " " << enemy.unitId;
-
-
-                printMove(H, o);
-                break;
-            }
-
-            case SELF_DEFENCE:{
-                if(H.enemiesAround == 1 && allEntities[H.nearestEnemyId].health < H.health)
-                    o << "ATTACK " << H.nearestEnemyId;
-                else
-                    o << "MOVE " << homeTower.x << " " << homeTower.y;
-
-                printMove(H, o);
-                break;
-            }
-
-            }
-        }
-
-        //If still no move found then default
-        if(!H.actioned)
-        {
-            defaultMove(H);
-        }
+        //Not complete yet
     }
 
 };
@@ -1179,3 +951,4 @@ team: -1 unitId: 18 unitType: GROOT heroType - health 120 mana 0 isVisible 1 ite
 
 1920X750 field
 */
+
