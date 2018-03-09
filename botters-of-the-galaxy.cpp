@@ -151,6 +151,8 @@ int entityCount;
 Entity homeTower;
 Entity enemyTower;
 Entity nearestEnemyInFrontLine;
+Entity frontMostAlliedUnit;
+Point avgPositionOfAlliedUnits;
 
 
 vector<SpawnPoint> spawnPoints;
@@ -259,16 +261,14 @@ struct Hero : public Entity
         return id;
     }
 
-    void defaultMove()
+    virtual void defaultMove()
     {
         stringstream o;
         Point p;
-        p.x = nearestEnemyInFrontLine.x;
-        p.y = nearestEnemyInFrontLine.y - 10;
-        p.y += unitId%2 == 0 ? attackRange : -attackRange;
-        p.y = min(p.y, 740);
+        p.x = myTeam == 0 ? max(0, nearestEnemyInFrontLine.x - attackRange + 10) : min(nearestEnemyInFrontLine.x + attackRange - 10, 1910);
+        p.y = nearestEnemyInFrontLine.y;
 
-        o << "MOVE_ATTACK " << p.x << " " << p.y << " " << nearestEnemyInFrontLine.unitId << "; Default";
+        o << "ATTACK " << nearestEnemyInFrontLine.unitId << "; Default";
         printMove(o);
     }
 
@@ -322,18 +322,6 @@ struct Hero : public Entity
                     o << "MOVE " << homeTower.x << " " << homeTower.y;
                 else
                     o << "ATTACK " << nearestOpponentUnit;
-                printMove(o);
-                break;
-            }
-            case ATTACK_ENEMY_TOWER:{
-                if(abs(enemyTower.x - x) > 400)
-                {
-                    o << "MOVE " << enemyTower.x << " " << enemyTower.y;
-                }
-                else
-                {
-                    o << "ATTACK " << enemyTower.unitId;
-                }
                 printMove(o);
                 break;
             }
@@ -393,7 +381,7 @@ struct Hulk : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
 
                 stringstream o;
                 for(Entity& e: allEntities)
@@ -407,7 +395,7 @@ struct Hulk : public Hero
                             printMove(o);
                             break;
                         }
-                        else if(d < 500 && mana > manaCost[CHARGE] && countDown[CHARGE] == 0)
+                        else if(d < 300 && mana > manaCost[CHARGE] && countDown[CHARGE] == 0)
                         {
                             o << "CHARGE " << e.unitId << "; Faraway weak1";
                             printMove(o);
@@ -431,8 +419,19 @@ struct Hulk : public Hero
                 break;
             }
 
+            case ATTACK_ENEMY_TOWER:{
+                if(distanceTo(enemyTower) < 300 && mana > manaCost[CHARGE] && countDown[CHARGE] == 0)
+                    o << "CHARGE " << enemyTower.unitId;
+
+                printMove(o);
+                break;
+            }
+
             case SELF_DEFENCE:{
-                if(enemiesAround == 1 && allEntities[nearestEnemyId].health < health)
+                if(enemiesAround == 1 && allEntities[nearestEnemyId].health < health && allEntities[nearestEnemyId].unitType == "HERO"
+                        && distanceTo(enemyTower) < 300 && mana > manaCost[CHARGE] && countDown[CHARGE] == 0)
+                    o << "ATTACK " << nearestEnemyId;
+                else if(enemiesAround == 1 && allEntities[nearestEnemyId].health < health)
                     o << "ATTACK " << nearestEnemyId;
                 else
                     o << "MOVE " << homeTower.x << " " << homeTower.y;
@@ -469,7 +468,7 @@ struct Valkyrie : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
 
                 for(Entity& e: allEntities)
                 {
@@ -489,6 +488,16 @@ struct Valkyrie : public Hero
                             break;
                         }
                     }
+                }
+                break;
+            }
+
+            case ATTACK_ENEMY_TOWER:{
+                if(distanceTo(enemyTower) < 250 && mana > manaCost[JUMP] && countDown[JUMP] == 0)
+                {
+                    o << "JUMP " << enemyTower.x << " " << enemyTower.y;
+                    printMove(o);
+                    break;
                 }
                 break;
             }
@@ -544,7 +553,7 @@ struct Ironman : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
 
 
                 for(Entity& e: allEntities)
@@ -580,11 +589,214 @@ struct Ironman : public Hero
                 break;
             }
 
+            case ATTACK_ENEMY_TOWER:{
+                if(distanceTo(enemyTower) <= 900 && mana > manaCost[FIREBALL] && countDown[FIREBALL] == 0)
+                    o << "FIREBALL " << enemyTower.x << " " << enemyTower.y;
+                else if(distanceTo(enemyTower) < 400)
+                    o << "MOVE " << homeTower.x << " " << homeTower.y;
+
+                printMove(o);
+                break;
+            }
+
             case SELF_DEFENCE:{
                 if(enemiesAround == 1 && allEntities[nearestEnemyId].health < health)
+                {
                     o << "ATTACK " << nearestEnemyId;
+                }
                 else
+                {
+                    if(mana > manaCost[BLINK] && countDown[BLINK] == 0)
+                        o << "BLINK " << homeTower.x << " " << homeTower.y;
+                    else
+                        o << "MOVE " << homeTower.x << " " << homeTower.y;
+                }
+
+                printMove(o);
+                break;
+            }
+
+            }
+        }
+
+        //If still no move found then default
+        if(!actioned)
+        {
+            defaultMove();
+        }
+    }
+};
+
+struct Deadpool : public Hero
+{
+    Deadpool(const Entity& E)
+        :Hero(E)
+    {}
+
+    void playMove()
+    {
+        enum skills {COUNTER = 0, WIRE = 1, STEALTH = 2};
+        vector<int> manaCost = {40,50,30};
+
+        stringstream o;
+        if(!actioned)
+        {
+            switch(Strategy){
+            case ATTACK_FRONTLINE:{
+                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+
+
+                for(Entity& e: allEntities)
+                {
+                    int d = distanceTo(e);
+                    if(e.health < attackDamage)
+                    {
+                        if(d < attackRange)
+                        {
+                            o << "ATTACK " << e.unitId << "; Nearby weak1";
+                            printMove(o);
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+
+            case SWARM_ATTACK_ENEMY_HERO:{
+                Entity enemy = enemyHeros[0].unitId == enemyIdToSwarm ? enemyHeros[0] : enemyHeros[1];
+                int d = distanceTo(enemy);
+
+                Point p; p.y = enemy.y;
+                p.x = myTeam == 0 ? min(enemy.x - attackRange + 10, 0) : max(enemy.x + attackRange - 10, homeTower.x);
+
+                if(d < 200 && mana > manaCost[STEALTH] && countDown[STEALTH] == 0)
+                    o << "WIRE " << enemy.x << " " << enemy.y;
+                else if(d > attackRange && mana > manaCost[STEALTH] && countDown[STEALTH] == 0)
+                    o << "STEALTH " << enemy.x << " " << enemy.y;
+                else
+                    o << "ATTACK " << enemy.unitId;
+
+
+                printMove(o);
+                break;
+            }
+
+            case ATTACK_ENEMY_TOWER:{
+                if(distanceTo(enemyTower) < 200 && mana > manaCost[STEALTH] && countDown[STEALTH] == 0)
+                    o << "WIRE " << enemyTower.x << " " << enemyTower.y;
+                else if(distanceTo(enemyTower) > attackRange && mana > manaCost[STEALTH] && countDown[STEALTH] == 0)
+                    o << "STEALTH " << enemyTower.x << " " << enemyTower.y;
+
+                printMove(o);
+                break;
+            }
+
+            case SELF_DEFENCE:{
+                if(enemiesAround == 1 && allEntities[nearestEnemyId].health < health)
+                {
+                    o << "ATTACK " << nearestEnemyId;
+                }
+                else
+                {
+                    if(mana > manaCost[COUNTER] && countDown[COUNTER] == 0)
+                        o << "COUNTER";
+                    else
+                        o << "MOVE " << homeTower.x << " " << homeTower.y;
+                }
+
+                printMove(o);
+                break;
+            }
+
+            }
+        }
+
+        //If still no move found then default
+        if(!actioned)
+        {
+            defaultMove();
+        }
+    }
+};
+
+struct DrStrange : public Hero
+{
+    DrStrange(const Entity& E)
+        :Hero(E)
+    {}
+
+    virtual void defaultMove()
+    {
+        stringstream o;
+        Point p;
+        p.x = myTeam == 0 ?  max(0,avgPositionOfAlliedUnits.x - attackRange) : min(1910, avgPositionOfAlliedUnits.x + attackRange);
+        p.y = frontMostAlliedUnit.y;
+
+        o << "MOVE " << p.x << " " << p.y << "; Default";
+        printMove(o);
+    }
+
+    void playMove()
+    {
+        enum skills {AOEHEAL = 0, SHIELD = 1, PULL = 2};
+        vector<int> manaCost = {40,50,30};
+
+        stringstream o;
+        if(!actioned)
+        {
+            switch(Strategy){
+            case ATTACK_FRONTLINE:{
+                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+
+
+                for(Entity& e: allEntities)
+                {
+                    int d = distanceTo(e);
+                    if(e.health < attackDamage)
+                    {
+                        if(d < attackRange)
+                        {
+                            o << "ATTACK " << e.unitId << "; Nearby weak1";
+                            printMove(o);
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+
+            case ATTACK_ENEMY_TOWER:{
+                o << "ATTACK " << enemyTower.unitId;
+                printMove(o);
+                break;
+            }
+
+            case SWARM_ATTACK_ENEMY_HERO:{
+                Entity enemy = enemyHeros[0].unitId == enemyIdToSwarm ? enemyHeros[0] : enemyHeros[1];
+                int d = distanceTo(enemy);
+
+                Point p; p.y = enemy.y;
+                p.x = myTeam == 0 ? min(enemy.x - attackRange + 10, 0) : max(enemy.x + attackRange - 10, homeTower.x);
+
+                if(d < 400 && mana > manaCost[PULL] && countDown[PULL] == 0)
+                    o << "PULL " << enemy.unitId;
+                else
+                    o << "ATTACK " << enemy.unitId;
+
+
+                printMove(o);
+                break;
+            }
+
+            case SELF_DEFENCE:{
+                if(enemiesAround == 1 && allEntities[nearestEnemyId].health < health)
+                {
+                    o << "ATTACK " << nearestEnemyId;
+                }
+                else
+                {
                     o << "MOVE " << homeTower.x << " " << homeTower.y;
+                }
 
                 printMove(o);
                 break;
@@ -655,6 +867,8 @@ struct Game{
 
         //Find nearest enemy from home in frontline
         int dist = numeric_limits<int>::max();
+        int dist2 = numeric_limits<int>::max();
+        int unitCount = 0;
         for(Entity& e: allEntities)
         {
             if(e.team == oppTeam)
@@ -666,7 +880,22 @@ struct Game{
                     nearestEnemyInFrontLine = e;
                 }
             }
+            else if(e.team == myTeam && e.unitType == "UNIT")
+            {
+                e.distanceToOpponentTower = e.distanceTo(enemyTower);
+                if(e.distanceToOpponentTower < dist2)
+                {
+                    dist2 = e.distanceToOpponentTower;
+                    frontMostAlliedUnit = e;
+                    unitCount++;
+                    avgPositionOfAlliedUnits.x += e.x;
+                    avgPositionOfAlliedUnits.y += e.y;
+                }
+            }
         }
+        if(unitCount){
+            avgPositionOfAlliedUnits.x /= unitCount; avgPositionOfAlliedUnits.y /= unitCount;}
+
 
         //Update Hero distance
         for(auto H: myHeroes)
@@ -682,29 +911,40 @@ struct Game{
 
     void findStrategy()
     {
+        bool enemyHerosHiding = true;
+        for(auto E: enemyHeros)
+            if(E.distanceTo(enemyTower) > 500)
+                enemyHerosHiding = false;
+
         for(auto H: myHeroes)
         {
             if(gold > 200 && !H->isUnderAttack())
             {
                 H->Strategy = UPGRADE;
             }
-            else if(enemyHeros.size() == 1 && enemyHeros[0].distanceTo(enemyTower) > 500)
+            else if(myHeroes.size() > enemyHeros.size() && enemyHeros[0].distanceTo(enemyTower) > 1000 )
             {
                 H->Strategy = SWARM_ATTACK_ENEMY_HERO;
                 enemyIdToSwarm = enemyHeros[0].unitId;
-            }
-            else if(enemyHeros.size() == 2 && enemyHeros[1].distanceTo(enemyTower) > 500)
-            {
-                H->Strategy = SWARM_ATTACK_ENEMY_HERO;
-                enemyIdToSwarm = enemyHeros[1].unitId;
             }
             else if(H->isUnderAttack())
             {
                 H->Strategy = SELF_DEFENCE;
             }
-            else if(gold < 200 && H->findNeutralToAttack() != -1)
+            else if(enemyHeros.size() == 2 && enemyHeros[1].distanceTo(enemyTower) > 500 && enemyHeros[0].health < H->health)
             {
-                H->Strategy = COLLECT_GOLD;
+                if(enemyHeros[0].distanceTo(enemyTower) > 1000 && enemyHeros[0].health < H->health)
+                {
+                    H->Strategy = SWARM_ATTACK_ENEMY_HERO;
+                    enemyIdToSwarm = enemyHeros[0].unitId;
+                }
+                else if(enemyHeros[1].distanceTo(enemyTower) > 1000 && enemyHeros[1].health < H->health)
+                {
+                    H->Strategy = SWARM_ATTACK_ENEMY_HERO;
+                    enemyIdToSwarm = enemyHeros[1].unitId;
+                }
+                else
+                    H->Strategy = ATTACK_FRONTLINE;
             }
             else if(H->health < 500 && (H->itemsOwned > 0 || gold > 50))
             {
@@ -718,6 +958,10 @@ struct Game{
             {
                 H->Strategy = ATTACK_ENEMY_TOWER;
             }
+            else if(gold < 50 && H->findNeutralToAttack() != -1 && enemyHerosHiding && H->heroType != "DOCTOR_STRANGE")
+            {
+                H->Strategy = COLLECT_GOLD;
+            }
             else
             {
                 H->Strategy = ATTACK_FRONTLINE;
@@ -729,9 +973,9 @@ struct Game{
         if(roundType < 0)
         {
             if(heroCount == 0)
-                cout << "HULK" << endl;
-            else
                 cout << "VALKYRIE" << endl;
+            else
+                cout << "DEADPOOL" << endl;
             ++heroCount;
         }
         else
@@ -879,6 +1123,10 @@ int main()
                     h = new Valkyrie(e);
                 else if(e.heroType == "IRONMAN")
                     h = new Ironman(e);
+                else if(e.heroType == "DEADPOOL")
+                    h = new Deadpool(e);
+                else if(e.heroType == "DOCTOR_STRANGE")
+                    h = new DrStrange(e);
 
                 myHeroes.push_back(h);
             }
