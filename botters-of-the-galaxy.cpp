@@ -158,7 +158,7 @@ Point avgPositionOfAlliedUnits;
 
 vector<SpawnPoint> spawnPoints;
 vector<Item> items;
-vector<Entity> allEntities;
+vector<Entity> allEnemyAndNeutralEntities;
 
 vector<Entity> enemyHeros;
 int enemyIdToSwarm;
@@ -241,7 +241,7 @@ struct Hero : public Entity
         int leastNeutralDist = 50000;
         int id = -1;
         int neutralHealth = 5000;
-        for(Entity& e: allEntities)
+        for(Entity& e: allEnemyAndNeutralEntities)
         {
             if(e.team == neutralTeam)
             {
@@ -412,10 +412,10 @@ struct Hulk : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
+                sort(allEnemyAndNeutralEntities.begin(), allEnemyAndNeutralEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
 
                 stringstream o;
-                for(Entity& e: allEntities)
+                for(Entity& e: allEnemyAndNeutralEntities)
                 {
                     int d = distanceTo(e);
                     if(e.health < attackDamage)
@@ -459,10 +459,10 @@ struct Hulk : public Hero
             }
 
             case SELF_DEFENCE:{
-                if(enemiesAround == 1 && allEntities[entityIndex[nearestEnemyId]].health < health && allEntities[entityIndex[nearestEnemyId]].unitType == "HERO"
+                if(enemiesAround == 1 && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].health < health && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].unitType == "HERO"
                         && distanceTo(enemyTower) < 300 && mana > manaCost[CHARGE] && countDown[CHARGE] == 0)
                     o << "ATTACK " << nearestEnemyId;
-                else if(enemiesAround == 1 && allEntities[entityIndex[nearestEnemyId]].health < health)
+                else if(enemiesAround == 1 && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].health < health)
                     o << "ATTACK " << nearestEnemyId;
                 else
                     o << "MOVE " << homeTower.x << " " << homeTower.y;
@@ -521,9 +521,9 @@ struct Valkyrie : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
+                sort(allEnemyAndNeutralEntities.begin(), allEnemyAndNeutralEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
 
-                for(Entity& e: allEntities)
+                for(Entity& e: allEnemyAndNeutralEntities)
                 {
                     int d = distanceTo(e);
                     if(e.health < attackDamage)
@@ -568,7 +568,7 @@ struct Valkyrie : public Hero
             }
 
             case SELF_DEFENCE:{
-                if(enemiesAround == 1 && allEntities[entityIndex[nearestEnemyId]].health < health && allEntities[entityIndex[nearestEnemyId]].distanceTo(homeTower) < allEntities[entityIndex[nearestEnemyId]].distanceTo(enemyTower))
+                if(enemiesAround == 1 && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].health < health && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].distanceTo(homeTower) < allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].distanceTo(enemyTower))
                     o << "ATTACK " << nearestEnemyId;
                 else
                     o << "MOVE " << homeTower.x << " " << homeTower.y;
@@ -629,10 +629,10 @@ struct Ironman : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
+                sort(allEnemyAndNeutralEntities.begin(), allEnemyAndNeutralEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.distanceFromHome < i2.distanceFromHome;});
 
 
-                for(Entity& e: allEntities)
+                for(Entity& e: allEnemyAndNeutralEntities)
                 {
                     int d = distanceTo(e);
                     if(e.health < attackDamage)
@@ -676,7 +676,7 @@ struct Ironman : public Hero
             }
 
             case SELF_DEFENCE:{
-                if(enemiesAround == 1 && allEntities[entityIndex[nearestEnemyId]].health < health)
+                if(enemiesAround == 1 && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].health < health)
                 {
                     o << "ATTACK " << nearestEnemyId;
                 }
@@ -741,10 +741,10 @@ struct Deadpool : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+                sort(allEnemyAndNeutralEntities.begin(), allEnemyAndNeutralEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
 
 
-                for(Entity& e: allEntities)
+                for(Entity& e: allEnemyAndNeutralEntities)
                 {
                     int d = distanceTo(e);
                     if(e.health < attackDamage)
@@ -790,7 +790,7 @@ struct Deadpool : public Hero
             }
 
             case SELF_DEFENCE:{
-                if(enemiesAround == 1 && allEntities[entityIndex[nearestEnemyId]].health < health && allEntities[entityIndex[nearestEnemyId]].distanceTo(homeTower) < allEntities[entityIndex[nearestEnemyId]].distanceTo(enemyTower))
+                if(enemiesAround == 1 && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].health < health && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].distanceTo(homeTower) < allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].distanceTo(enemyTower))
                 {
                     o << "ATTACK " << nearestEnemyId;
                 }
@@ -844,10 +844,10 @@ struct DrStrange : public Hero
         {
             switch(Strategy){
             case ATTACK_FRONTLINE:{
-                sort(allEntities.begin(), allEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
+                sort(allEnemyAndNeutralEntities.begin(), allEnemyAndNeutralEntities.end(), [](Entity& i1, Entity& i2)-> bool{return i1.health < i2.health;});
 
 
-                for(Entity& e: allEntities)
+                for(Entity& e: allEnemyAndNeutralEntities)
                 {
                     int d = distanceTo(e);
                     if(e.health < attackDamage)
@@ -887,7 +887,7 @@ struct DrStrange : public Hero
             }
 
             case SELF_DEFENCE:{
-                if(enemiesAround == 1 && allEntities[entityIndex[nearestEnemyId]].health < health)
+                if(enemiesAround == 1 && allEnemyAndNeutralEntities[entityIndex[nearestEnemyId]].health < health)
                 {
                     o << "ATTACK " << nearestEnemyId;
                 }
@@ -924,7 +924,7 @@ struct Game{
     {neutralTeam = -1;}
 
     void clearLoopStates(){
-        allEntities.clear(); prevHeroStates.clear(); entityIndex.clear(); enemyHeros.clear();
+        allEnemyAndNeutralEntities.clear(); prevHeroStates.clear(); entityIndex.clear(); enemyHeros.clear();
 
         for(Hero* p: myHeroes)
             delete p;
@@ -942,7 +942,7 @@ struct Game{
             int leastNeutralDist = 5000;
             int leastOppEnemyDist = 5000;
 
-            for(Entity& e: allEntities)
+            for(Entity& e: allEnemyAndNeutralEntities)
             {
                 if(e.team != myTeam)
                 {
@@ -967,7 +967,7 @@ struct Game{
         int dist = numeric_limits<int>::max();
         int dist2 = numeric_limits<int>::max();
         int unitCount = 0;
-        for(Entity& e: allEntities)
+        for(Entity& e: allEnemyAndNeutralEntities)
         {
             if(e.team == oppTeam)
             {
@@ -1003,8 +1003,8 @@ struct Game{
 
         }
 
-        for(int i = 0; i < allEntities.size(); ++i)
-            entityIndex[allEntities[i].unitId] = i;
+        for(int i = 0; i < allEnemyAndNeutralEntities.size(); ++i)
+            entityIndex[allEnemyAndNeutralEntities[i].unitId] = i;
     }
 
     void findStrategy()
@@ -1029,20 +1029,15 @@ struct Game{
             {
                 H->Strategy = COLLECT_GOLD;
             }
-            else if(enemyHeros.size() == 2 && enemyHeros[1].distanceTo(enemyTower) > 600)
+            else if(enemyHeros.size() == 2 && enemyHeros[0].distanceTo(enemyTower) > 500)
             {
-                if(enemyHeros[0].distanceTo(enemyTower) > 500)
-                {
-                    H->Strategy = SWARM_ATTACK_ENEMY_HERO;
-                    enemyIdToSwarm = enemyHeros[0].unitId;
-                }
-                else if(enemyHeros[1].distanceTo(enemyTower) > 500)
-                {
-                    H->Strategy = SWARM_ATTACK_ENEMY_HERO;
-                    enemyIdToSwarm = enemyHeros[1].unitId;
-                }
-                else
-                    H->Strategy = ATTACK_FRONTLINE;
+                H->Strategy = SWARM_ATTACK_ENEMY_HERO;
+                enemyIdToSwarm = enemyHeros[0].unitId;
+            }
+            else if(enemyHeros.size() == 2 && enemyHeros[1].distanceTo(enemyTower) > 500)
+            {
+                H->Strategy = SWARM_ATTACK_ENEMY_HERO;
+                enemyIdToSwarm = enemyHeros[1].unitId;
             }
             else if(H->health < 500 && (H->itemsOwned > 0 || gold > 50))
             {
@@ -1060,13 +1055,13 @@ struct Game{
             {
                 H->Strategy = ATTACK_ENEMY_TOWER;
             }
-            else if(H->distanceTo(enemyTower) > 500)
+            else if(nearestEnemyInFrontLine.distanceTo(enemyTower) > 500 )
             {
                 H->Strategy = ATTACK_FRONTLINE;
             }
             else
             {
-
+                H->Strategy = HIDE;
             }
         }
     }
@@ -1108,7 +1103,7 @@ struct Game{
         int nDist = H.distanceTo(n); int sDist = H.distanceTo(s); int eDist = H.distanceTo(e); int wDist = H.distanceTo(w);
 
 
-        for(Entity& e: allEntities)
+        for(Entity& e: allEnemyAndNeutralEntities)
         {
             if(e.team == oppTeam)
             {
@@ -1235,16 +1230,19 @@ int main()
             else if(oppTeam == e.team && e.unitType == "HERO")
             {
                 enemyHeros.push_back(e);
+                allEnemyAndNeutralEntities.emplace_back(e);
             }
             else if(e.unitType == "TOWER")
             {
                 if(e.team == myTeam)
                     homeTower = e;
                 else
-                    enemyTower = e;
+                    enemyTower = e, allEnemyAndNeutralEntities.emplace_back(e);;
             }
+            else
+                allEnemyAndNeutralEntities.emplace_back(e);
 
-            allEntities.emplace_back(e);
+            
         }
         //        //cerr << "Home: " << game.home.x << " " << game.home.y << endl;
         //        //cerr << "enemyTower: " << game.enemyTower.x << " " << game.enemyTower.y << endl;
